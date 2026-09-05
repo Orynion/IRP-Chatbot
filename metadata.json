@@ -1,0 +1,6 @@
+{
+  "name": "IRP Discord Bot",
+  "description": "Python Discord AI assistant with Turso 150-message rolling memory, Groq/Gemini/OpenRouter LLM fallback chain, Tavily tool use search, anti-spam cooldown, and behavior guardrails.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
