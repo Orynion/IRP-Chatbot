@@ -206,7 +206,7 @@ async function executeLLMChain(
           return {
             success: true,
             provider: "Groq",
-            model: "llama-3.3-70b-versatile",
+            model: "openai/gpt-oss-120b",
             response: sanitizeRepetition(choice.content),
             tool_used: toolDetails,
             fallback_chain: ["Groq (Success)"]
@@ -236,7 +236,7 @@ async function executeLLMChain(
       const promptText = `${SYSTEM_PROMPT}\n\n${historyContext ? `--- RECENT CHANNEL HISTORY ---\n${historyContext}\n\n` : ""}[${userName}]: ${userPrompt}`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-3.6-flash",
         contents: promptText,
         config: {
           maxOutputTokens: 800,
@@ -249,7 +249,7 @@ async function executeLLMChain(
         return {
           success: true,
           provider: "Google Gemini",
-          model: "gemini-3.8-flash",
+          model: "gemini-3.6-flash",
           response: sanitizeRepetition(rawText),
           tool_used: null,
           fallback_chain: [...fallbackLogs.map(l => `${l.split(" ")[0]} (Failed)`), "Gemini (Success)"]
@@ -275,7 +275,7 @@ async function executeLLMChain(
           "X-Title": "IRP Discord Bot"
         },
         body: JSON.stringify({
-          model: "meta-llama/llama-3.3-70b-instruct:free",
+          model: "openrouter/free",
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             ...(historyContext ? [{ role: "system", content: `--- RECENT CHANNEL HISTORY ---\n${historyContext}` }] : []),
@@ -293,7 +293,7 @@ async function executeLLMChain(
           return {
             success: true,
             provider: "OpenRouter",
-            model: "meta-llama/llama-3.3-70b-instruct:free",
+            model: "openrouter/free",
             response: sanitizeRepetition(content),
             tool_used: null,
             fallback_chain: [...fallbackLogs.map(l => `${l.split(" ")[0]} (Failed)`), "OpenRouter (Success)"]

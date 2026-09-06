@@ -99,7 +99,7 @@ export const FallbackVisualizer: React.FC<FallbackVisualizerProps> = ({ config }
                 {config?.groqKeySet ? "Active" : "Key in .env"}
               </span>
             </div>
-            <div className="text-[11px] font-mono text-indigo-400 truncate">llama-3.3-70b-versatile</div>
+            <div className="text-[11px] font-mono text-indigo-400 truncate">openai/gpt-oss-120b</div>
             <div className="text-[10px] text-slate-500 mt-1">Ultra-low latency inference</div>
           </div>
         </div>
@@ -113,7 +113,7 @@ export const FallbackVisualizer: React.FC<FallbackVisualizerProps> = ({ config }
                 {config?.geminiKeySet ? "Ready" : "Key in .env"}
               </span>
             </div>
-            <div className="text-[11px] font-mono text-cyan-400 truncate">gemini-3.8-flash</div>
+            <div className="text-[11px] font-mono text-cyan-400 truncate">gemini-3.6-flash</div>
             <div className="text-[10px] text-slate-500 mt-1">Deep context & fast failover</div>
           </div>
         </div>
@@ -127,7 +127,7 @@ export const FallbackVisualizer: React.FC<FallbackVisualizerProps> = ({ config }
                 {config?.openrouterKeySet ? "Ready" : "Key in .env"}
               </span>
             </div>
-            <div className="text-[11px] font-mono text-amber-400 truncate">llama-3.3-70b:free</div>
+            <div className="text-[11px] font-mono text-amber-400 truncate">openrouter/free</div>
             <div className="text-[10px] text-slate-500 mt-1">Tertiary free redundancy</div>
           </div>
         </div>
