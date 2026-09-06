@@ -113,7 +113,7 @@ export const FallbackVisualizer: React.FC<FallbackVisualizerProps> = ({ config }
                 {config?.geminiKeySet ? "Ready" : "Key in .env"}
               </span>
             </div>
-            <div className="text-[11px] font-mono text-cyan-400 truncate">gemini-2.5-flash</div>
+            <div className="text-[11px] font-mono text-cyan-400 truncate">gemini-3.8-flash</div>
             <div className="text-[10px] text-slate-500 mt-1">Deep context & fast failover</div>
           </div>
         </div>

@@ -225,11 +225,18 @@ async function executeLLMChain(
   // Provider 2: Google Gemini API (Fallback)
   if (geminiKey) {
     try {
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const ai = new GoogleGenAI({
+        apiKey: geminiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build'
+          }
+        }
+      });
       const promptText = `${SYSTEM_PROMPT}\n\n${historyContext ? `--- RECENT CHANNEL HISTORY ---\n${historyContext}\n\n` : ""}[${userName}]: ${userPrompt}`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.8-flash",
         contents: promptText,
         config: {
           maxOutputTokens: 800,
@@ -242,7 +249,7 @@ async function executeLLMChain(
         return {
           success: true,
           provider: "Google Gemini",
-          model: "gemini-2.5-flash",
+          model: "gemini-3.8-flash",
           response: sanitizeRepetition(rawText),
           tool_used: null,
           fallback_chain: [...fallbackLogs.map(l => `${l.split(" ")[0]} (Failed)`), "Gemini (Success)"]

@@ -84,7 +84,7 @@ def _sync_http_post(url: str, headers: Dict[str, str], payload: Dict[str, Any], 
 class LLMChainOrchestrator:
     def __init__(self):
         self.groq_model = "llama-3.3-70b-versatile"
-        self.gemini_model = "gemini-2.5-flash"
+        self.gemini_model = "gemini-3.8-flash"
         self.openrouter_model = "meta-llama/llama-3.3-70b-instruct:free"
 
     async def _post_json(self, url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout: int = 20) -> Tuple[int, str]:
@@ -185,7 +185,7 @@ class LLMChainOrchestrator:
             logger.info("Gemini API key not provided, skipping to OpenRouter fallback.")
             return None, "Gemini API key not configured", None
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.gemini_model}:generateContent?key={GEMINI_API_KEY}"
         headers = {"Content-Type": "application/json"}
 
         contents = []
