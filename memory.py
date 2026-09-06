@@ -1,10 +1,12 @@
 """
 memory.py - Persistent rolling channel conversation memory (up to 150 messages)
-stored in Turso (libSQL) using libsql-client with SQLite fallback.
+stored in Turso (libSQL) using libsql-client with SQLite fallback and in-memory fault-tolerance.
 """
 import logging
 import asyncio
 import sqlite3
+from collections import deque
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from config import TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, MAX_HISTORY_PER_CHANNEL
 
@@ -26,18 +28,30 @@ class ConversationMemory:
         self._initialized = False
         self._use_sqlite_fallback = False
         self._sqlite_path = "irp_memory.db"
+        
+        # Local in-memory ring-buffer cache per channel (fault-tolerance if Turso is temporarily unreachable)
+        self._fallback_cache: Dict[str, deque] = {}
 
         if self.db_url and self.db_url.startswith("file:"):
             self._sqlite_path = self.db_url.replace("file:", "")
+
+    def _get_channel_deque(self, channel_id: str) -> deque:
+        if channel_id not in self._fallback_cache:
+            self._fallback_cache[channel_id] = deque(maxlen=MAX_HISTORY_PER_CHANNEL)
+        return self._fallback_cache[channel_id]
 
     async def _init_client(self):
         """Initializes client based on available packages and configuration."""
         if HAS_LIBSQL_CLIENT and self.db_url and (self.db_url.startswith("libsql://") or self.db_url.startswith("https://")):
             if self._libsql_client is None:
-                if self.auth_token:
-                    self._libsql_client = libsql_client.create_client_async(url=self.db_url, auth_token=self.auth_token)
-                else:
-                    self._libsql_client = libsql_client.create_client_async(url=self.db_url)
+                try:
+                    if self.auth_token:
+                        self._libsql_client = libsql_client.create_client_async(url=self.db_url, auth_token=self.auth_token)
+                    else:
+                        self._libsql_client = libsql_client.create_client_async(url=self.db_url)
+                except Exception as e:
+                    logger.warning(f"Could not connect to remote Turso database ({e}). Using local SQLite fallback.")
+                    self._use_sqlite_fallback = True
         elif HAS_LIBSQL_CLIENT and self.db_url and self.db_url.startswith("file:"):
             if self._libsql_client is None:
                 self._libsql_client = libsql_client.create_client_async(url=self.db_url)
@@ -92,8 +106,15 @@ class ConversationMemory:
                 self._initialized = True
                 logger.info(f"Memory database initialized (driver: {'libsql-client' if self._libsql_client else 'sqlite3'}).")
             except Exception as e:
-                logger.exception(f"Failed to initialize memory database schema: {e}")
-                raise
+                logger.warning(f"Failed to initialize remote schema ({e}). Falling back to local SQLite.")
+                try:
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, self._sync_sqlite_init, self._sqlite_path)
+                    self._libsql_client = None
+                    self._initialized = True
+                except Exception as ex2:
+                    logger.error(f"SQLite fallback also failed ({ex2}). In-memory buffer active.")
+                    self._initialized = True
 
     def _sync_sqlite_add_and_prune(self, db_path: str, channel_id: str, author_id: str, author_name: str, bot_flag: int, content: str, cap: int):
         conn = sqlite3.connect(db_path)
@@ -137,6 +158,18 @@ class ConversationMemory:
         clean_content = content.strip()
         bot_flag = 1 if is_bot else 0
 
+        # Always update local ring-buffer cache
+        cached_entry = {
+            "id": None,
+            "author_id": clean_author_id,
+            "author_name": clean_author_name,
+            "is_bot": is_bot,
+            "content": clean_content,
+            "created_at": datetime.utcnow().isoformat(),
+            "tag": f"[{'IRP (Bot)' if is_bot else clean_author_name}]: {clean_content}"
+        }
+        self._get_channel_deque(clean_chan).append(cached_entry)
+
         try:
             if self._libsql_client is not None:
                 await self._libsql_client.execute(
@@ -170,7 +203,7 @@ class ConversationMemory:
                     MAX_HISTORY_PER_CHANNEL
                 )
         except Exception as e:
-            logger.exception(f"Error persisting message to memory: {e}")
+            logger.warning(f"Error persisting message to database ({e}). In-memory buffer preserved.")
 
     def _sync_sqlite_get(self, db_path: str, channel_id: str, limit: int):
         conn = sqlite3.connect(db_path)
@@ -245,8 +278,9 @@ class ConversationMemory:
                 })
             return formatted
         except Exception as e:
-            logger.exception(f"Error reading channel history from memory: {e}")
-            return []
+            logger.warning(f"Error reading channel history from database ({e}). Returning in-memory fallback cache.")
+            cached = list(self._get_channel_deque(clean_chan))
+            return cached[-effective_limit:]
 
     async def get_channel_stats(self, channel_id: str) -> Dict[str, Any]:
         """Returns message count and diagnostics for a channel."""

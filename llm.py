@@ -2,6 +2,7 @@
 llm.py - Multi-provider LLM Fallback Chain (Groq -> Gemini -> OpenRouter)
 with Tavily Web Search Tool Calling and Anti-Spam Guardrails.
 """
+import os
 import json
 import logging
 import re
@@ -83,9 +84,9 @@ def _sync_http_post(url: str, headers: Dict[str, str], payload: Dict[str, Any], 
 
 class LLMChainOrchestrator:
     def __init__(self):
-        self.groq_model = "llama-3.3-70b-versatile"
-        self.gemini_model = "gemini-3.8-flash"
-        self.openrouter_model = "meta-llama/llama-3.3-70b-instruct:free"
+        self.groq_model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        self.gemini_model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        self.openrouter_model = os.environ.get("OPENROUTER_MODEL", "openai/gpt-oss-120b:free")
 
     async def _post_json(self, url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout: int = 20) -> Tuple[int, str]:
         if HAS_AIOHTTP:

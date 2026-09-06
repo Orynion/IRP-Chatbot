@@ -7,9 +7,12 @@ Anti-Spam: 10-15s per-user cooldown window.
 """
 import asyncio
 import logging
+import os
 import re
 import sys
+import threading
 import time
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict
 
 import discord
@@ -77,6 +80,10 @@ async def on_ready():
     logger.info(f"Anti-spam cooldown set to: {COOLDOWN_SECONDS}s per user.")
     logger.info("Initializing Turso / libSQL memory database...")
     await memory_store.init_db()
+    
+    if not cleanup_cooldowns.is_running():
+        cleanup_cooldowns.start()
+        
     logger.info("IRP Bot is ready and listening silently for @IRP mentions and 'IRP' name triggers.")
     logger.info("=" * 60)
 
@@ -193,10 +200,55 @@ async def cleanup_cooldowns():
     for uid in expired_users:
         user_cooldowns.pop(uid, None)
 
+class HealthCheckHTTPHandler(BaseHTTPRequestHandler):
+    """
+    Lightweight HTTP Request Handler responding to health check requests on Render/Cloud deployments.
+    """
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(b"IRP is alive\n")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        # Silence standard HTTP access logs to keep bot terminal logs clean
+        pass
+
+def start_health_server():
+    """
+    Starts an HTTP server in a background daemon thread so Render Web Service health-checks pass.
+    Binds to 0.0.0.0 and PORT (Render default is 10000 or custom PORT env var).
+    """
+    port_str = os.environ.get("PORT", "10000")
+    try:
+        port = int(port_str)
+    except ValueError:
+        port = 10000
+
+    server_address = ("0.0.0.0", port)
+    try:
+        httpd = HTTPServer(server_address, HealthCheckHTTPHandler)
+        logger.info(f"Health-check HTTP server listening on http://0.0.0.0:{port}/ (for Render Web Service)")
+        httpd.serve_forever()
+    except OSError as e:
+        logger.warning(f"Could not bind health-check HTTP server to port {port}: {e} (continuing Discord bot)")
+    except Exception as e:
+        logger.warning(f"Health-check HTTP server encountered error: {e}")
+
 def main():
     """Main execution function."""
     config_status = get_config_summary()
     logger.info(f"Starting IRP Discord Bot with configuration: {config_status}")
+
+    # Launch background HTTP health check server for Render Web Service compliance
+    health_thread = threading.Thread(target=start_health_server, daemon=True, name="IRP-Health-Server")
+    health_thread.start()
 
     if not DISCORD_BOT_TOKEN:
         logger.error(
@@ -210,8 +262,6 @@ def main():
         print("     See README.md for full step-by-step setup instructions.")
         print("=" * 70 + "\n")
         return
-
-    cleanup_cooldowns.start()
 
     try:
         client.run(DISCORD_BOT_TOKEN)

@@ -64,6 +64,14 @@ async def search_web(query: str, max_results: int = 3) -> Dict[str, Any]:
     Executes a web search query via Tavily Search API.
     Returns structured results including summary snippets and source URLs.
     """
+    if not query or not str(query).strip():
+        return {
+            "success": False,
+            "error": "Empty search query provided.",
+            "results": [],
+            "formatted": "Search query was empty."
+        }
+
     if not TAVILY_API_KEY:
         logger.warning("Tavily API key not configured. Skipping web search.")
         return {
